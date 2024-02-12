@@ -1,0 +1,14 @@
+# Ignore providers folder
+terraform/.terraform/providers/
+
+# Ignore terraform state
+terraform/terraform.tfstate.d/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/.terraform.lock.hcl
+
+# Ignore AWS Key
+terraform/MyAWSKey.pem
+
+# Ignore log files
+*.log
