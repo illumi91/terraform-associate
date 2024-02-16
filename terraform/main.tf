@@ -9,6 +9,32 @@ provider "aws" {
   region = "us-east-1"
 }
 
+locals {
+  team        = "api_mgmt_dev"
+  application = "corp_api"
+  server_name = "ec2-${var.environment}-api-${var.variables_sub_az}"
+}
+
+locals {
+  service_name      = "Automation"
+  app_team          = "Cloud Team"
+  createdby         = "terraform"
+  current_workspace = terraform.workspace
+}
+
+locals {
+  # Common tags to be assigned to all resources
+  common_tags = {
+    Name             = local.server_name
+    Owner            = local.team
+    App              = local.application
+    Service          = local.service_name
+    AppTeam          = local.app_team
+    CreatedBy        = local.createdby
+    CurrentWorkspace = local.current_workspace
+  }
+}
+
 #Retrieve the list of AZs in the current AWS region
 data "aws_availability_zones" "available" {}
 data "aws_region" "current" {}
@@ -350,7 +376,5 @@ resource "aws_instance" "web_server_2" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.public_subnets["public_subnet_2"].id
-  tags = {
-    Name = "Web EC2 Server Ciccio"
-  }
+  tags          = local.common_tags
 }

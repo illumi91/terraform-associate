@@ -1,11 +1,4 @@
 terraform {
-  backend "remote" {
-    hostname     = "app.terraform.io"
-    organization = "Freedom-Finance"
-    workspaces {
-      name = "my-aws-app"
-    }
-  }
   required_version = ">= 1.0.0"
   required_providers {
     aws = {
