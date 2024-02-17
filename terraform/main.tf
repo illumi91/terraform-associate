@@ -170,38 +170,36 @@ data "aws_ami" "ubuntu" {
   owners = ["099720109477"]
 }
 
-# Terraform Resource Block - To Build EC2 instance in Public Subnet
-resource "aws_instance" "ubuntu_server" {
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.public_subnets["public_subnet_1"].id
-  security_groups             = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
-  associate_public_ip_address = true
-  key_name                    = aws_key_pair.generated.key_name
-  connection {
-    user        = "ubuntu"
-    private_key = tls_private_key.generated.private_key_pem
-    host        = self.public_ip
-  }
+# # Terraform Resource Block - To Build EC2 instance in Public Subnet
+# resource "aws_instance" "ubuntu_server" {
+#   ami                         = data.aws_ami.ubuntu.id
+#   instance_type               = "t2.micro"
+#   subnet_id                   = aws_subnet.public_subnets["public_subnet_1"].id
+#   security_groups             = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
+#   associate_public_ip_address = true
+#   key_name                    = aws_key_pair.generated.key_name
+#   connection {
+#     user        = "ubuntu"
+#     private_key = tls_private_key.generated.private_key_pem
+#     host        = self.public_ip
+#   }
 
-  provisioner "remote-exec" {
-    inline = [
-      "sudo rm -rf /tmp",
-      "sudo git clone https://github.com/hashicorp/demo-terraform-101 /tmp",
-      "sudo sh /tmp/assets/setup-web.sh",
-    ]
-  }
+#   provisioner "remote-exec" {
+#     inline = [
+#       "sudo rm -rf /tmp",
+#       "sudo git clone https://github.com/hashicorp/demo-terraform-101 /tmp",
+#       "sudo sh /tmp/assets/setup-web.sh",
+#     ]
+#   }
 
-  tags = {
-    Name = "Ubuntu EC2 Server"
-  }
+#   tags = {
+#     Name = "Ubuntu EC2 Server"
+#   }
 
-  lifecycle {
-    ignore_changes = [security_groups]
-  }
-
-
-}
+#   lifecycle {
+#     ignore_changes = [security_groups]
+#   }
+# }
 
 # Terraform Resource Block - Security Group to Allow Ping Traffic
 resource "aws_security_group" "vpc-ping" {
@@ -228,10 +226,10 @@ resource "tls_private_key" "generated" {
   algorithm = "RSA"
 }
 
-resource "local_file" "private_key_pem" {
-  content  = tls_private_key.generated.private_key_pem
-  filename = "MyAWSKey.pem"
-}
+# resource "local_file" "private_key_pem" {
+#   content  = tls_private_key.generated.private_key_pem
+#   filename = "MyAWSKey.pem"
+# }
 
 resource "aws_key_pair" "generated" {
   key_name   = "MyAWSKey"
@@ -287,63 +285,70 @@ resource "aws_security_group" "vpc-web" {
   }
 }
 
-module "server" {
-  source          = "./modules/server"
-  ami             = data.aws_ami.ubuntu.id
-  size            = "t2.micro"
-  subnet_id       = aws_subnet.public_subnets["public_subnet_3"].id
-  security_groups = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
+# module "server" {
+#   source          = "./modules/server"
+#   ami             = data.aws_ami.ubuntu.id
+#   size            = "t2.micro"
+#   subnet_id       = aws_subnet.public_subnets["public_subnet_3"].id
+#   security_groups = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
+# }
+
+# module "server_subnet_1" {
+#   source          = "./modules/web_server"
+#   ami             = data.aws_ami.ubuntu.id
+#   key_name        = aws_key_pair.generated.key_name
+#   user            = "ubuntu"
+#   private_key     = tls_private_key.generated.private_key_pem
+#   subnet_id       = aws_subnet.public_subnets["public_subnet_1"].id
+#   security_groups = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
+# }
+
+resource "aws_subnet" "list_subnet" {
+  for_each          = var.env
+  vpc_id            = aws_vpc.vpc.id
+  cidr_block        = each.value.ip
+  availability_zone = each.value.az
 }
 
-module "server_subnet_1" {
-  source          = "./modules/web_server"
-  ami             = data.aws_ami.ubuntu.id
-  key_name        = aws_key_pair.generated.key_name
-  user            = "ubuntu"
-  private_key     = tls_private_key.generated.private_key_pem
-  subnet_id       = aws_subnet.public_subnets["public_subnet_1"].id
-  security_groups = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
-}
+# output "public_ip" {
+#   value = module.server.public_ip
+# }
 
-output "public_ip" {
-  value = module.server.public_ip
-}
+# output "public_dns" {
+#   value = module.server.public_dns
+# }
 
-output "public_dns" {
-  value = module.server.public_dns
-}
+# output "size" {
+#   value = module.server.size
+# }
 
-output "size" {
-  value = module.server.size
-}
+# output "public_ip_server_subnet_1" {
+#   value = module.server_subnet_1.public_ip
+# }
 
-output "public_ip_server_subnet_1" {
-  value = module.server_subnet_1.public_ip
-}
+# output "public_dns_server_subnet_1" {
+#   value = module.server_subnet_1.public_dns
+# }
 
-output "public_dns_server_subnet_1" {
-  value = module.server_subnet_1.public_dns
-}
+# module "autoscaling" {
+#   source = "terraform-aws-modules/autoscaling/aws"
+#   # Autoscaling group
+#   name                = "myasg"
+#   vpc_zone_identifier = [aws_subnet.private_subnets["private_subnet_1"].id, aws_subnet.private_subnets["private_subnet_2"].id, aws_subnet.private_subnets["private_subnet_3"].id]
+#   min_size            = 0
+#   max_size            = 1
+#   desired_capacity    = 1
+#   image_id            = data.aws_ami.ubuntu.id
+#   instance_type       = "t3.micro"
+#   tags = {
+#     Name = "Web EC2 Server 2"
+#   }
 
-module "autoscaling" {
-  source = "terraform-aws-modules/autoscaling/aws"
-  # Autoscaling group
-  name                = "myasg"
-  vpc_zone_identifier = [aws_subnet.private_subnets["private_subnet_1"].id, aws_subnet.private_subnets["private_subnet_2"].id, aws_subnet.private_subnets["private_subnet_3"].id]
-  min_size            = 0
-  max_size            = 1
-  desired_capacity    = 1
-  image_id            = data.aws_ami.ubuntu.id
-  instance_type       = "t3.micro"
-  tags = {
-    Name = "Web EC2 Server 2"
-  }
+# }
 
-}
-
-output "asg_group_size" {
-  value = module.autoscaling.autoscaling_group_max_size
-}
+# output "asg_group_size" {
+#   value = module.autoscaling.autoscaling_group_max_size
+# }
 
 module "s3-bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
@@ -390,3 +395,4 @@ resource "aws_subnet" "variables-subnet" {
     Terraform = "true"
   }
 }
+
