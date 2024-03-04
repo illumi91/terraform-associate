@@ -25,29 +25,57 @@ locals {
 locals {
   # Common tags to be assigned to all resources
   common_tags = {
-    Name             = local.server_name
-    Owner            = local.team
-    App              = local.application
-    Service          = local.service_name
-    AppTeam          = local.app_team
-    CreatedBy        = local.createdby
-    CurrentWorkspace = local.current_workspace
+    Name             = lower(local.server_name)
+    Owner            = lower(local.team)
+    App              = lower(local.application)
+    Service          = lower(local.service_name)
+    AppTeam          = lower(local.app_team)
+    CreatedBy        = lower(local.createdby)
+    CurrentWorkspace = lower(local.current_workspace)
   }
+}
+
+locals {
+  maximum = max(var.num_1, var.num_2, var.num_3)
+  minimum = min(var.num_1, var.num_2, var.num_3, 44, 20)
 }
 
 #Retrieve the list of AZs in the current AWS region
 data "aws_availability_zones" "available" {}
 data "aws_region" "current" {}
 
-#Define the VPC 
+data "aws_s3_bucket" "data_bucket" {
+  bucket = "my-data-lookup-bucket-lf"
+}
+
+# Terraform Data Block - To Lookup Latest Ubuntu 20.04 AMI Image
+data "aws_ami" "ubuntu" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477"]
+}
+
+#Define the VPC
 resource "aws_vpc" "vpc" {
   cidr_block = var.vpc_cidr
 
   tags = {
-    Name        = var.vpc_name
-    Environment = "demo_environment"
-    Terraform   = "true"
+    Name        = upper(var.vpc_name)
+    Environment = upper(var.environment)
+    Terraform   = upper("true")
   }
+
+  enable_dns_hostnames = true
 }
 
 #Deploy the private subnets
@@ -148,26 +176,8 @@ resource "aws_nat_gateway" "nat_gateway" {
   }
 }
 
-
 resource "random_string" "random" {
   length = 10
-}
-
-# Terraform Data Block - To Lookup Latest Ubuntu 20.04 AMI Image
-data "aws_ami" "ubuntu" {
-  most_recent = true
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  owners = ["099720109477"]
 }
 
 # # Terraform Resource Block - To Build EC2 instance in Public Subnet
@@ -285,95 +295,11 @@ resource "aws_security_group" "vpc-web" {
   }
 }
 
-# module "server" {
-#   source          = "./modules/server"
-#   ami             = data.aws_ami.ubuntu.id
-#   size            = "t2.micro"
-#   subnet_id       = aws_subnet.public_subnets["public_subnet_3"].id
-#   security_groups = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
-# }
-
-# module "server_subnet_1" {
-#   source          = "./modules/web_server"
-#   ami             = data.aws_ami.ubuntu.id
-#   key_name        = aws_key_pair.generated.key_name
-#   user            = "ubuntu"
-#   private_key     = tls_private_key.generated.private_key_pem
-#   subnet_id       = aws_subnet.public_subnets["public_subnet_1"].id
-#   security_groups = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
-# }
-
 resource "aws_subnet" "list_subnet" {
   for_each          = var.env
   vpc_id            = aws_vpc.vpc.id
   cidr_block        = each.value.ip
   availability_zone = each.value.az
-}
-
-# output "public_ip" {
-#   value = module.server.public_ip
-# }
-
-# output "public_dns" {
-#   value = module.server.public_dns
-# }
-
-# output "size" {
-#   value = module.server.size
-# }
-
-# output "public_ip_server_subnet_1" {
-#   value = module.server_subnet_1.public_ip
-# }
-
-# output "public_dns_server_subnet_1" {
-#   value = module.server_subnet_1.public_dns
-# }
-
-# module "autoscaling" {
-#   source = "terraform-aws-modules/autoscaling/aws"
-#   # Autoscaling group
-#   name                = "myasg"
-#   vpc_zone_identifier = [aws_subnet.private_subnets["private_subnet_1"].id, aws_subnet.private_subnets["private_subnet_2"].id, aws_subnet.private_subnets["private_subnet_3"].id]
-#   min_size            = 0
-#   max_size            = 1
-#   desired_capacity    = 1
-#   image_id            = data.aws_ami.ubuntu.id
-#   instance_type       = "t3.micro"
-#   tags = {
-#     Name = "Web EC2 Server 2"
-#   }
-
-# }
-
-# output "asg_group_size" {
-#   value = module.autoscaling.autoscaling_group_max_size
-# }
-
-module "s3-bucket" {
-  source  = "terraform-aws-modules/s3-bucket/aws"
-  version = "4.1.0"
-  bucket  = "lf-my-test-bucket-12022024"
-}
-
-output "s3_buket_name" {
-  value = module.s3-bucket.s3_bucket_bucket_domain_name
-}
-
-module "vpc" {
-  source             = "terraform-aws-modules/vpc/aws"
-  name               = "my-vpc-terraform"
-  cidr               = "10.0.0.0/16"
-  azs                = ["us-east-1a", "us-east-1b", "us-east-1c"]
-  private_subnets    = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  public_subnets     = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
-  enable_nat_gateway = true
-  enable_vpn_gateway = true
-  tags = {
-    Name        = "VPC from Module"
-    Terraform   = "true"
-    Environment = "dev"
-  }
 }
 
 # Terraform Resource Block - To Build EC2 instance in Public Subnet
@@ -396,3 +322,129 @@ resource "aws_subnet" "variables-subnet" {
   }
 }
 
+resource "aws_iam_policy" "policy" {
+  name        = "data_bucket_policy"
+  description = "Allow access to my bucket"
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "s3:Get*",
+          "s3:List*"
+        ],
+        "Resource" : "${data.aws_s3_bucket.data_bucket.arn}"
+      }
+    ]
+  })
+}
+
+resource "aws_security_group" "main" {
+  name   = "core-sg"
+  vpc_id = aws_vpc.vpc.id
+
+  dynamic "ingress" {
+    for_each = var.web_ingress
+
+    content {
+      description = ingress.value.description
+      from_port   = ingress.value.port
+      to_port     = ingress.value.port
+      protocol    = ingress.value.protocol
+      cidr_blocks = ingress.value.cidr_blocks
+    }
+  }
+}
+
+# module "server" {
+#   source          = "./modules/server"
+#   ami             = data.aws_ami.ubuntu.id
+#   size            = "t2.micro"
+#   subnet_id       = aws_subnet.public_subnets["public_subnet_3"].id
+#   security_groups = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
+# }
+
+# module "server_subnet_1" {
+#   source          = "./modules/web_server"
+#   ami             = data.aws_ami.ubuntu.id
+#   key_name        = aws_key_pair.generated.key_name
+#   user            = "ubuntu"
+#   private_key     = tls_private_key.generated.private_key_pem
+#   subnet_id       = aws_subnet.public_subnets["public_subnet_1"].id
+#   security_groups = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
+# }
+
+# module "autoscaling" {
+#   source = "terraform-aws-modules/autoscaling/aws"
+#   # Autoscaling group
+#   name                = "myasg"
+#   vpc_zone_identifier = [aws_subnet.private_subnets["private_subnet_1"].id, aws_subnet.private_subnets["private_subnet_2"].id, aws_subnet.private_subnets["private_subnet_3"].id]
+#   min_size            = 0
+#   max_size            = 1
+#   desired_capacity    = 1
+#   image_id            = data.aws_ami.ubuntu.id
+#   instance_type       = "t3.micro"
+#   tags = {
+#     Name = "Web EC2 Server 2"
+#   }
+
+# }
+
+module "s3-bucket" {
+  source  = "terraform-aws-modules/s3-bucket/aws"
+  version = "4.1.0"
+  bucket  = "lf-my-test-bucket-12022024"
+}
+
+module "vpc" {
+  source             = "terraform-aws-modules/vpc/aws"
+  name               = "my-vpc-terraform"
+  cidr               = "10.0.0.0/16"
+  azs                = ["us-east-1a", "us-east-1b", "us-east-1c"]
+  private_subnets    = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+  public_subnets     = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+  enable_nat_gateway = true
+  enable_vpn_gateway = true
+  tags = {
+    Name        = "VPC from Module"
+    Terraform   = "true"
+    Environment = "dev"
+  }
+}
+
+# output "public_ip" {
+#   value = module.server.public_ip
+# }
+
+# output "public_dns" {
+#   value = module.server.public_dns
+# }
+
+# output "size" {
+#   value = module.server.size
+# }
+
+# output "public_ip_server_subnet_1" {
+#   value = module.server_subnet_1.public_ip
+# }
+
+# output "public_dns_server_subnet_1" {
+#   value = module.server_subnet_1.public_dns
+# }
+
+# output "asg_group_size" {
+#   value = module.autoscaling.autoscaling_group_max_size
+# }
+
+# output "s3_buket_name" {
+#   value = module.s3-bucket.s3_bucket_bucket_domain_name
+# }
+
+output "max_value" {
+  value = local.maximum
+}
+
+output "min_value" {
+  value = local.minimum
+}

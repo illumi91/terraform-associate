@@ -26,15 +26,15 @@ locals {
   # my_number = nonsensitive(var.phone_number)
 }
 
-output "first_name" {
-  value     = local.contact_info.first_name
-  sensitive = true
-}
+# output "first_name" {
+#   value     = local.contact_info.first_name
+#   sensitive = true
+# }
 
-output "last_name" {
-  value     = local.contact_info.last_name
-  sensitive = true
-}
+# output "last_name" {
+#   value     = local.contact_info.last_name
+#   sensitive = true
+# }
 
 # output "phone_number" {
 #   value     = local.contact_info.phone_number
